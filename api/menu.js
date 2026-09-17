@@ -1,4 +1,4 @@
-import { openToolsWindow, openInsertJS, getLocale, getSettings, isMac, toolList, debugLog } from '../core/index.js';
+import { openToolsWindow, openInsertJS, getLocale, getSettings, isMac, toolList, debugLog, openHistory } from '../core/index.js';
 import { shell, clipboard, dialog, BrowserWindow, Menu } from 'electron';
 
 // 获取翻译文件和配置文件
@@ -67,7 +67,9 @@ const controlMenu_Window = [
         defaultId: 1,
         cancelId: 1
       }).then(code => {
-        if (code === 0) clipboard.writeText(url);
+        if (code.response === 0) {
+          clipboard.writeText(url);
+        }
       })
     }
   },
@@ -80,6 +82,10 @@ const controlMenu_Window = [
       const url = win.webContents.getURL();
       if (url) shell.openExternal(url);
     }
+  }, {
+    label: ctrlText.openHistory,
+    accelerator: 'Ctrl+H',
+    click: openHistory,
   }
 ];
 

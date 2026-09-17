@@ -87,6 +87,12 @@
             "rename": "Rename operation only allows a single item"
         }
     },
+    "history": {
+        "title": "Web history",
+        "deleteBtn": "Clean All",
+        "refreshBtn": "Refresh",
+        "confirmTip": "Are you sure you want to delete all your history?"
+    },
     "menu": {
         "tools": {
             "index": "Tools..."
@@ -115,6 +121,7 @@
             },
             "devTools": "Developer Tools",
             "openOutside": "Open in default browser",
+            "openHistory": "Web history",
             "switchTopMenu": "Toggle top menu",
             "switchContentMenu": "Toggle context menu",
             "insertJS": "Insert JavaScript"
@@ -229,8 +236,9 @@
         },
         "setting": {
             "get": "Configuration file read error",
+            "getImg": "Failed to convert background image to local URL",
             "set": "Configuration file modification error",
-            "message": "Configuration file saved successfully!"
+            "message": "Configuration file saved successfully. Restart the software to apply the changes."
         },
         "tools": {
             "notepad": {

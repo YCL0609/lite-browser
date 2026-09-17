@@ -21,15 +21,17 @@ ipcMain.handle('localFile-get', (_, name, type) => {
 
 // 设置文件
 ipcMain.handle('localFile-set', (_, name, base64) => {
-    if (!DataPath.access.W || !name || !base64) return;
+    if (!DataPath.access.W || !name || !base64) return true;
     try {
         if (!DataPath.access.W) throw new Error(lang.add.errorInfo);
         const buffer = Buffer.from(base64, 'base64');
         debugLog('info', 'Setting file', name, ', data length', buffer.length)
         const file = path.join(DataPath.basic, name);
         fs.writeFileSync(file, buffer);
+        return true;
     } catch (err) {
         debugLog('error', 'Failed to set file:', err.message);
         dialog.showErrorBox(lang.add.errorTitle, err.message);
+        return false;
     }
 });

@@ -176,6 +176,7 @@ function getSettings() {
   if (_settings !== null) return _settings;
   const file = path.join(DataPath.basic, 'settings.json')
 
+  // 获取配置文件
   if (DataPath.access.R) {
     try {
       let rawFile = getFile(file, JSON.stringify(defaultSetting))
@@ -205,6 +206,9 @@ function getSettings() {
     contentMenu: menuContent ? false : _settings.app.contentMenu,
   }
   _settings.app = cmdAppcfg;
+
+  // 覆写处理
+  if (!_settings.app.normalMode) _settings.app.useGPU = false;
 
   return _settings
 }

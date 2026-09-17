@@ -12,7 +12,7 @@ function _getNomenuSession() {
 }
 
 /**
- * 打开一个独立的工具窗口 (位于 `html/tools/<name>.html`)
+ * 打开工具窗口 (位于 `html/tools/<name>.html`)
  * @param {string} [name=''] - 工具页面的文件名，为空时不做任何操作
  * @returns {void}
  */
@@ -73,11 +73,11 @@ function openInsertJS() {
 }
 
 /**
- * 打开一个独立的配置修改页面
+ * 打开配置修改页面
  * @returns {void}
  */
 function openSettings() {
-    debugLog('info', `Opening settings window.`);
+    debugLog('info', 'Opening settings window.');
     const newwin = new BrowserWindow({
         width: 600,
         height: 600,
@@ -96,7 +96,33 @@ function openSettings() {
     newwin.loadURL(pathToFileURL(path.join(AppPath, 'html', settings.app.normalMode ? 'normal' : 'limited', 'setting', 'index.html')).href);
 }
 
+/**
+ * 打开历史记录页面
+ */
+function openHistory() {
+    debugLog('info', 'Opening history window.')
+    const newwin = new BrowserWindow({
+        width: 1024,
+        height: 600,
+        minWidth: 640,
+        minHeight: 360,
+        icon: IconPath,
+        webPreferences: {
+            sandbox: true,
+            spellcheck: false,
+            webSecurity: true,
+            nodeIntegration: false,
+            contextIsolation: true,
+            session: _getNomenuSession(),
+            preload: path.join(AppPath, 'api', 'preload', 'setting.js'),
+        }
+    });
+    newwin.setMenu(debugMenu);
+    newwin.loadURL(pathToFileURL(path.join(AppPath, 'html', settings.app.normalMode ? 'normal' : 'limited', 'history', 'index.html')).href);
+}
+
 export {
+    openHistory,
     openInsertJS,
     openSettings,
     openToolsWindow,

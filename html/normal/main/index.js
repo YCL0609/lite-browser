@@ -113,16 +113,14 @@ if (!litebrowser.dataDirAccess.R || !litebrowser.dataDirAccess.W) {
     }, 5000);
 }
 
-// 背景
-if (litebrowser.background?.trim() !== '') litebrowser.getFile(litebrowser.background?.trim(), 'base64')
-    .then(base64 => {
-        const ext = litebrowser.background.split('.').pop()?.toLowerCase() || '';
+// 加载背景
+if (litebrowser.backgroundName) litebrowser.getBackgroundURL(litebrowser.backgroundName)
+    .then(url => {
+        if (!url) return;
+        const ext = url.split('.').pop()?.toLowerCase() || '';
         const mime = imgMIME[ext];
         if (!mime) return;
-        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-        const blob = new Blob([bytes], { type: mime });
-        imgBlobUrl = URL.createObjectURL(blob);
-        document.body.style.backgroundImage = `url('${imgBlobUrl}')`
+        document.body.style.backgroundImage = `url('${url}')`;
     })
 
 // 加载书签

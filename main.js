@@ -1,5 +1,6 @@
 import { cmdLineHandle, debugLog, getSettings, AppPath, DataPath, IconPath } from './core/index.js';
-import { app, session, BrowserWindow, Menu, dialog } from 'electron';
+import { app, session, BrowserWindow, Menu, dialog, clipboard } from 'electron';
+import { pathToFileURL } from 'node:url';
 import { TopMenu } from './api/menu.js';
 import path from "node:path";
 const gotTheLock = app.requestSingleInstanceLock();
@@ -17,7 +18,7 @@ if (DataPath.basic === '') {
 }
 app.setPath('userData', DataPath.userData);
 
-// GPU加速禁用
+// GPU加速禁用配置处理
 if (!settings?.app.useGPU) {
   // 调用electron官方API
   app.disableHardwareAcceleration();
@@ -46,6 +47,7 @@ debugLog('table', settings?.app)
 
 // 主窗口实例
 function createMainWindow() {
+  const bgURL = pathToFileURL(String(settings?.mainWin.background))?.href?.trim() ?? '';
   mainWin = new BrowserWindow({
     width: 1024,
     height: 600,
@@ -62,11 +64,12 @@ function createMainWindow() {
       preload: path.join(AppPath, 'api', 'preload', 'main.js'),
       additionalArguments: [
         '--app-config=' + btoa(JSON.stringify(settings)),
-        '--dir-access=' + ((DataPath.access.R ? 1 : 0) | (DataPath.access.W ? 2 : 0))
+        '--dir-access=' + ((DataPath.access.R ? 1 : 0) | (DataPath.access.W ? 2 : 0)),
+        '--background=' + btoa(bgURL)
       ],
     }
   });
-  mainWin.loadFile(path.join(AppPath, 'html', settings.app.normalMode ? 'normal' : 'limited', 'main', 'index.html'));
+  mainWin.loadFile(path.join(AppPath, 'html', settings?.app.normalMode ? 'normal' : 'limited', 'main', 'index.html'));
   mainWin.on('closed', () => mainWin = null);
 }
 
@@ -95,7 +98,7 @@ app.whenReady().then(() => {
   });
 
   // 引入所有 ipc 事件
-  import('./api/ipc/main.js');
+  import('./api/ipc/index.js');
 });
 
 // 处理第二实例

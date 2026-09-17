@@ -6,12 +6,12 @@ import os from 'node:os';
 /**************** 程序基础 ****************/
 
 // 调试相关
-const _debugValue = (process.env.LB_DEBUG || '').trim().toLowerCase();
-const _traceValue = (process.env.LB_DEBUG_TRACE || '').trim().toLowerCase();
-const _LogValue = (process.env.LB_LOG || '').trim().toLowerCase();
-const isDebug = ['true', '1', 'yes'].includes(_debugValue);
-const isTrace = ['true', '1', 'yes'].includes(_traceValue);
-const isLog = isDebug || ['true', '1', 'yes'].includes(_LogValue);
+const _envDebug = (process.env.LB_DEBUG || '').trim().toLowerCase();
+const _envTrace = (process.env.LB_DEBUG_TRACE || '').trim().toLowerCase();
+const _envLog = (process.env.LB_LOG || '').trim().toLowerCase();
+const isDebug = ['true', '1', 'yes'].includes(_envDebug);
+const isTrace = ['true', '1', 'yes'].includes(_envTrace);
+const isLog = isDebug || ['true', '1', 'yes'].includes(_envLog);
 
 // 是否为 Mac 环境
 const isMac = process.platform === 'darwin';

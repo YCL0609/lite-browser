@@ -1,17 +1,19 @@
 const { ipcRenderer, contextBridge } = require('electron');
 
 // 目录权限参数获取
-let accessR = 0;
-let accessW = 0;
+const access = { R: false, W: false }
 try {
     const accessArg = process.argv.find(arg => arg.startsWith('--dir-access='));
     const dirAccess = parseInt(accessArg.split('=')[1]) ?? 0;
-    accessR = (dirAccess >> 0) & 1
-    accessW = (dirAccess >> 1) & 1
-} catch (_) { }
+    access.R = (dirAccess >> 0) & 1
+    access.W = (dirAccess >> 1) & 1
+} catch (err) {
+    alert('Preload script error: Unable to parse command line arguments!')
+    console.error('Preload script error:', err.stack)
+}
 
 contextBridge.exposeInMainWorld('litebrowser', {
-    dataDirAccess: { R: accessR, W: accessW },
+    dataDirAccess: access,
     getLang: () => ipcRenderer.invoke('languageJson-get'),
     notepad: {
         get: (id) => ipcRenderer.invoke('tools-notepad-get', id),

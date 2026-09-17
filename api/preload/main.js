@@ -1,7 +1,8 @@
 const { ipcRenderer, contextBridge } = require('electron');
+const access = { R: false, W: false }
 let contextmenu = true;
 let topmenu = true;
-let accessR, accessW, cfg;
+let cfg = {};
 
 try {
   // 配置参数获取
@@ -12,14 +13,15 @@ try {
   // 目录权限参数获取
   const accessArg = process.argv.find(arg => arg.startsWith('--dir-access='));
   const dirAccess = parseInt(accessArg.split('=')[1]) ?? 0;
-  accessR = (dirAccess >> 0) & 1
-  accessW = (dirAccess >> 1) & 1
+  access.R = (dirAccess >> 0) & 1
+  access.W = (dirAccess >> 1) & 1
 } catch (err) {
   alert('Preload script error: Unable to parse command line arguments!')
   console.error('Preload script error:', err.stack)
 }
-let api = {};
 
+// 动态API生成
+const api = {};
 try {
   // 顶部菜单
   if (cfg.app.topMenu) api.switchTopMenu = () => {
@@ -32,16 +34,20 @@ try {
 
   // 右键菜单
   if (cfg.app.contentMenu) api.switchContextMenu = () => contextmenu = !contextmenu;
-} catch (err) { console.error('Preload script error:', err.stack) }
+} catch (err) {
+  alert('Preload script error: Dynamic API generation failed!')
+  console.error('Preload script error:', err.stack)
+}
 
 // 暴露接口
 contextBridge.exposeInMainWorld('litebrowser', {
   // 主页面设置
-  background: cfg.mainWin.background,
+  backgroundName: cfg.mainWin.background,
+  getBackgroundURL: (name) => ipcRenderer.invoke('settings-get-img', name),
   searchUrl: cfg.mainWin.searchUrl,
   custom: cfg.mainWin.custom,
   // 数据目录权限
-  dataDirAccess: { R: accessR, W: accessW },
+  dataDirAccess: access,
   // 新建窗口
   newWindow: (url) => ipcRenderer.send('window-open', url),
   // 打开设置

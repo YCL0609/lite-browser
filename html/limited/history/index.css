@@ -1,0 +1,148 @@
+html {
+    overflow-y: scroll;
+}
+
+h3 {
+    margin: 0;
+}
+
+.control {
+    display: flex;
+    align-items: center;
+}
+
+.control-icon {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-right: 10px;
+}
+
+.control-icon>div {
+    display: flex;
+    align-items: center;
+    height: 24px;
+    padding: 5px;
+    cursor: pointer;
+}
+
+.control-icon>div:hover {
+    background-color: #e6f7ff;
+    color: #1890ff;
+    transform: scale(1.08);
+}
+
+.control-icon>div:active {
+    transform: scale(0.98);
+}
+
+.control-icon>div:active {
+    transform: scale(0.98);
+}
+
+.list {
+    flex: 1;
+    width: 100%;
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.list>p {
+    text-align: center;
+}
+
+.list>div {
+    display: flex;
+    padding: 10px;
+    align-items: center;
+    word-break: break-all;
+    cursor: pointer;
+    border: solid 2px #99aabb;
+}
+
+.list>div:hover {
+    border-color: #002d8f;
+    background-color: #84c4ff;
+}
+
+.list>div h4 {
+    padding: 0 10px;
+    margin: 0;
+}
+
+.list>div a {
+    padding: 0 10px;
+    min-width: 60px;
+    border-right: solid gray 2px;
+}
+
+.list>hr {
+    position: relative;
+    border: none;
+    border-top: 2px solid gray;
+    margin: 0;
+    margin-top: 24px;
+    margin-bottom: 5px;
+    overflow: visible;
+}
+
+.list>hr::before {
+    content: attr(data-content);
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    transform: translateY(-4px);
+    font-size: 20px;
+    color: #666;
+    white-space: nowrap;
+}
+
+.list>hr {
+    width: 95%;
+}
+
+@media (prefers-color-scheme: dark) {
+    html {
+        background: #111827;
+        color-scheme: dark;
+    }
+
+    body {
+        background: #111827;
+        color: #e5e7eb;
+    }
+
+    .control-icon>div {
+        color: #dfeaff;
+    }
+
+    .control-icon>div:hover {
+        background-color: rgba(24, 144, 255, 0.2);
+        color: #7cc8ff;
+    }
+
+    .list>div {
+        background: rgba(17, 24, 39, 0.9);
+        color: #eef2ff;
+    }
+
+    .list>div:hover {
+        background-color: rgba(31, 107, 255, 0.28);
+    }
+
+    .list>div h4 {
+        color: #f3f4f6;
+    }
+
+    .list>div a {
+        color: #cbd5e1;
+    }
+
+    .list>hr::before {
+        color: #dfe7f5;
+    }
+}

@@ -88,6 +88,12 @@
             "rename": "重命名操作仅允许操作单个条目"
         }
     },
+    "history":{
+        "title": "历史记录",
+        "deleteBtn": "清空记录",
+        "refreshBtn": "刷新列表",
+        "confirmTip": "确定删除所有历史记录？"
+    },
     "menu": {
         "tools": {
             "index": "工具..."
@@ -116,6 +122,7 @@
             },
             "devTools": "开发者工具",
             "openOutside": "用默认浏览器打开",
+            "openHistory": "网页历史记录",
             "switchTopMenu": "切换顶部菜单",
             "switchContentMenu": "切换右键菜单",
             "insertJS": "JavaScript注入"
@@ -230,8 +237,9 @@
         },
         "setting": {
             "get": "配置文件读取错误",
+            "getImg": "背景图片转本地url失败",
             "set": "配置文件修改错误",
-            "message": "配置文件保存成功!"
+            "message": "配置文件已保存成功，重启软件以应用更改。"
         },
         "tools": {
             "notepad": {
