@@ -9,6 +9,8 @@ resizeCanvas();
 
 canvas.addEventListener('mouseup', () => isDrawing = false);
 canvas.addEventListener('mouseleave', () => isDrawing = false);
+// 右键用于擦除, 阻止右键菜单
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('mousedown', (e) => {
     e.preventDefault();
     isDrawing = true;
@@ -51,44 +53,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        canvas.toBlob(blob => {
-            // 设置原始图像
-            const rawImage = new Image();
-            const rawBlob = URL.createObjectURL(blob);
-            rawImage.src = rawBlob;
 
-            // 创建新画布并对齐大小
-            const bgCanvas = document.createElement('canvas');
-            const bgctx = bgCanvas.getContext('2d');
-            bgCanvas.width = canvas.width;
-            bgCanvas.height = canvas.height;
+        // 铺背景色
+        const bgCanvas = document.createElement('canvas');
+        const bgctx = bgCanvas.getContext('2d');
+        bgCanvas.width = canvas.width;
+        bgCanvas.height = canvas.height;
+        bgctx.fillStyle = isDark ? '#333' : '#fff';
+        bgctx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+        bgctx.drawImage(canvas, 0, 0);
 
-            // 添加背景颜色
-            bgctx.fillStyle = isDark ? '#333' : '#fff';
-            bgctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 下载图像
-            rawImage.onload = () => {
-                bgctx.drawImage(rawImage, 0, 0);
-                const link = document.createElement('a');
-                link.download = 'canvas-image.png';
-                link.href = bgCanvas.toDataURL('image/png');
-                link.click();
-            };
-        })
-
+        // 下载图像
+        const link = document.createElement('a');
+        link.download = 'canvas-image.png';
+        link.href = bgCanvas.toDataURL('image/png');
+        link.click();
     }
 });
 
 // 设置画图板大小
 function resizeCanvas() {
-    const oldData = canvas.toDataURL();
-    const img = new Image();
-    img.src = oldData;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    if (canvas.width === width && canvas.height === height) return;
 
-    img.onload = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        ctx.drawImage(img, 0, 0);
-    };
+    // 备份原画布
+    const snapshot = document.createElement('canvas');
+    snapshot.width = canvas.width;
+    snapshot.height = canvas.height;
+    snapshot.getContext('2d').drawImage(canvas, 0, 0);
+
+    // 还原画布
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(snapshot, 0, 0);
 }

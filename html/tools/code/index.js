@@ -3,6 +3,7 @@ const cssInput = document.getElementById("cssInput");
 const jsInput = document.getElementById("jsInput");
 const codeCache = { html: '', css: '', js: '' };
 let deleting = false;
+let previewTimer = null;
 
 // 快捷键保存
 document.addEventListener('keydown', async (e) => {
@@ -32,7 +33,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     await toolsFileControl.init('code');
     // 实时预览和 Tab 键支持
     [htmlInput, cssInput, jsInput].forEach((textarea) => {
-        textarea.addEventListener("input", updatePreview);
+        textarea.addEventListener("input", () => {
+            // 防抖
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(updatePreview, 250);
+        });
         textarea.addEventListener("keydown", (e) => {
             if (e.key === "Tab") {
                 e.preventDefault();
@@ -60,12 +65,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             updatePreview();
             // 设置自动保存
             setInterval(() => saveCode(true), 5 * 1000)
-        });
+        })
+        .catch(err => console.error('Failed to load code content:', err));
 });
-
 
 // 更新预览区域
 function updatePreview() {
+    clearTimeout(previewTimer);
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport"content="width=device-width, initial-scale=1.0"><style>${cssInput.value}</style></head><body>${htmlInput.value}<script>${jsInput.value}</script></body></html>`
     document.getElementById('preview').srcdoc = html;
 };
@@ -77,7 +83,7 @@ function saveCode(isauto = false) {
     const input = { html: htmlInput, css: cssInput, js: jsInput };
 
     ['html', 'css', 'js'].forEach(e => {
-        // 统一换行符，避免 Windows CRLF/LF 导致的误判
+        // 统一换行符，避免 CRLF/LF 导致的误判
         const cacheVal = (codeCache[e] || '').replace(/\r\n/g, '\n');
         const inputVal = (input[e].value || '').replace(/\r\n/g, '\n');
         if (cacheVal !== inputVal) changed.push(e);

@@ -3,6 +3,8 @@ const input = document.getElementById('input');
 let contentCache = '';
 let BlobUrl = null;
 let deleting = false;
+let previewTimer = null;
+let previewScroll = 0;
 
 // 初始化
 document.addEventListener("DOMContentLoaded", async () => {
@@ -22,7 +24,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             e[langTo] = value;
         });
     }
-    
+
     await toolsFileControl.init('markdown', langRaw);
     toolsFileControl.getFile()
         .then(response => {
@@ -32,7 +34,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             showMD();
             // 设置自动保存
             setInterval(() => saveMD(true), 5000)
-        });
+        })
+        .catch(err => console.error('Failed to load markdown content:', err));
 });
 
 // 页面卸载时清理 Blob URL
@@ -43,9 +46,18 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// preview加载完成后渲染数学公式
+// 预览页面加载成功
 preview.addEventListener('load', () => {
-    renderMathInElement(preview.contentDocument.body, {
+    const body = preview.contentDocument?.body;
+    if (!body) return;
+
+    // 还原滚动位置
+    if (previewScroll > 0) {
+        try { preview.contentWindow.scrollTo(0, previewScroll) } catch (_) { }
+    }
+
+    // 数学公式渲染
+    renderMathInElement(body, {
         delimiters: [
             { left: "$$", right: "$$", display: true },
             { left: "$", right: "$", display: false }
@@ -80,11 +92,18 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// 动态显示预览
-input.addEventListener('input', showMD);
+// 输入时刷新预览
+input.addEventListener('input', () => {
+    // 防抖
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(showMD, 250);
+});
 
 // 渲染Markdown预览
 function showMD() {
+    clearTimeout(previewTimer);
+    // 记录当前预览滚动位置
+    previewScroll = preview.contentWindow?.scrollY ?? 0;
     // Marked 转换
     const rawHtml = marked.parse(input.value);
     // DOMPurify 清理

@@ -3,6 +3,23 @@ let deleting = false;
 let contentCache = '';
 let tempNoteTip = "当前为临时笔记";
 
+// Alt快捷键映射表 
+const altShortcutMap = {
+    Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4', Digit5: '5', Digit6: '6',
+    Numpad1: '1', Numpad2: '2', Numpad3: '3', Numpad4: '4', Numpad5: '5', Numpad6: '6',
+    KeyI: 'i', KeyB: 'b', KeyU: 'u', KeyM: 'm',
+    Digit0: '0', Numpad0: '0',
+    Equal: '+', NumpadAdd: '+',
+    Minus: '-', NumpadSubtract: '-'
+};
+
+// 已包裹元素标签组
+const blockTags = new Set([
+    'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DD', 'DIV', 'DL', 'DT', 'FIELDSET',
+    'FIGCAPTION', 'FIGURE', 'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+    'HEADER', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TABLE', 'UL'
+]);
+
 document.addEventListener('DOMContentLoaded', async () => {
     DOMPurify.setConfig({
         ALLOWED_URI_REGEXP: /^(?:(?:https?|file|ftp|mailto|tel):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
@@ -22,8 +39,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 document.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+
     if (e.ctrlKey) {
-        switch (e.key.toLowerCase()) {
+        switch (key) {
             case '1':
             case '2':
             case '3':
@@ -62,7 +81,8 @@ document.addEventListener('keydown', (e) => {
                 break;
         }
     } else if (e.altKey) { // 格式化快捷键
-        switch (e.key.toLowerCase()) {
+        const altKey = altShortcutMap[e.code] ?? key;
+        switch (altKey) {
             case '1':
             case '2':
             case '3':
@@ -70,7 +90,7 @@ document.addEventListener('keydown', (e) => {
             case '5':
             case '6': // 切换标题
                 e.preventDefault();
-                formatText(`H${e.key}`);
+                formatText(`H${altKey}`);
                 break;
 
             case 'i': // 斜体
@@ -167,42 +187,96 @@ function saveNote(key, isauto = false) {
         .then((isok) => { if (isok) contentCache = note.innerHTML })
 }
 
+// 是否为块级元素
+function isBlockElement(node) {
+    return node?.nodeType === 1 && blockTags.has(node.tagName);
+}
+
+// 获取节点的直接子节点索引
+function topLevelIndexOf(container, node) {
+    while (node && node.parentNode !== container) node = node.parentNode;
+    return node ? Array.prototype.indexOf.call(container.childNodes, node) : -1;
+}
+
 // 格式化文本
 function formatText(target) {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     const range = selection.getRangeAt(0);
-    let blockNode = range.startContainer;
-    let newElement;
-
-    // 确保是一个元素节点
-    while (blockNode && blockNode.nodeType !== 1) blockNode = blockNode.parentNode;
     const editableRoot = document.querySelector('.note');
+    if (!editableRoot || !editableRoot.contains(range.startContainer)) return;
 
-    // 向上遍历 DOM 树，直到父节点是可编辑的根元素为止
+    // 找到选区所在的行级节点
+    let blockNode = range.startContainer;
+    while (blockNode && blockNode.nodeType !== 1) blockNode = blockNode.parentNode;
     while (blockNode && blockNode.parentNode !== editableRoot) {
         blockNode = blockNode.parentNode;
     }
-    if (!blockNode || blockNode === editableRoot) return;
 
-    // 获取当前块级元素标签名称
-    const currentTag = blockNode.tagName;
+    // 判断该行是否已被包裹
+    const isWrapped = blockNode && blockNode !== editableRoot &&
+        (isBlockElement(blockNode) || blockNode.tagName === target);
 
-    if (currentTag === target) {
-        // 如已经是目标格式，则切换回普通段落
-        newElement = document.createElement('P');
+    // 如已经是目标格式，则切换回普通段落，否则切换到目标格式
+    let newElement;
+    if (isWrapped) {
+        newElement = document.createElement(blockNode.tagName === target ? 'P' : target);
         newElement.innerHTML = blockNode.innerHTML;
         blockNode.parentNode.replaceChild(newElement, blockNode);
     } else {
-        // 如不是目标格式，则切换到目标格式
-        newElement = document.createElement(target);
-        newElement.innerHTML = blockNode.innerHTML;
-        blockNode.parentNode.replaceChild(newElement, blockNode);
+        // 包裹整行
+        const children = editableRoot.childNodes;
+        const element = document.createElement(target);
+
+        // 空编辑器: 插入一个空行供输入
+        if (children.length === 0) {
+            element.appendChild(document.createElement('br'));
+            editableRoot.appendChild(element);
+            newElement = element;
+        } else {
+            // 定位选区起点所在的根级子节点
+            let index = topLevelIndexOf(editableRoot, range.startContainer);
+            if (index === -1) {
+                if (range.startContainer !== editableRoot) return; // 选区不在编辑器内
+                const offset = range.startOffset;
+                if (children[offset] && !isBlockElement(children[offset])) {
+                    index = offset;
+                } else if (offset > 0 && !isBlockElement(children[offset - 1])) {
+                    index = offset - 1;
+                } else {
+                    index = Math.min(offset, children.length - 1);
+                }
+            }
+            if (index < 0) return;
+
+            // 已是块级元素的行, 无需包裹
+            if (isBlockElement(children[index])) return;
+
+            if (children[index].nodeName === 'BR') {
+                const anchor = children[index + 1] ?? null;
+                element.appendChild(children[index]);
+                editableRoot.insertBefore(element, anchor);
+            } else {
+                // 找出当前行的首尾节点
+                const isBreak = (node) => !node || isBlockElement(node) || node.nodeName === 'BR';
+                let start = index;
+                let end = index;
+                while (start > 0 && !isBreak(children[start - 1])) start--;
+                while (end < children.length - 1 && !isBreak(children[end + 1])) end++;
+
+                // 插入位置需要在搬运节点之前确定
+                const anchor = children[end + 1] ?? null;
+                Array.from(children).slice(start, end + 1).forEach(node => element.appendChild(node));
+                editableRoot.insertBefore(element, anchor);
+            }
+            newElement = element;
+        }
     }
 
     selection.removeAllRanges();
-    range.selectNodeContents(newElement);
-    selection.addRange(range);
+    const newRange = document.createRange();
+    newRange.selectNodeContents(newElement);
+    selection.addRange(newRange);
 }
 
 // 修改图片大小

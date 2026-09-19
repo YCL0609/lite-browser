@@ -37,24 +37,31 @@ function switchType() {
     document.getElementById('errorMsg').textContent = '';
 }
 
+// 读取内容的 DataURL, 失败时 reject (可在 try/catch 中被捕获)
+function readAsDataURL(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error ?? new Error(errorString));
+        reader.readAsDataURL(blob);
+    });
+}
+
 // 处理输入并执行编码或解码
 async function processInput(operation) {
-    document.getElementById('errorMsg').innerHTML = processing;
-    const inputType = document.getElementById('inputType').value;
+    const errorMsg = document.getElementById('errorMsg');
+    const outputArea = document.getElementById('outputArea');
+    errorMsg.innerHTML = processing;
     try {
+        const inputType = document.getElementById('inputType').value;
         if (inputType === 'text') {
             const text = document.getElementById('textInput').value.trim();
-            if (!text) return;
+            if (!text) { errorMsg.textContent = ''; return; }
             if (operation === 'encode') {
                 // 编码文本
                 const utf8Bytes = new TextEncoder().encode(text);
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const base64 = reader.result.split(',')[1];
-                    document.getElementById('outputArea').value = base64;
-                };
-                reader.onerror = e => { throw e };
-                reader.readAsDataURL(new Blob([utf8Bytes]));
+                const dataUrl = await readAsDataURL(new Blob([utf8Bytes]));
+                outputArea.value = dataUrl.split(',')[1];
             } else {
                 // 解码文本
                 try {
@@ -64,33 +71,28 @@ async function processInput(operation) {
                     for (let i = 0; i < binaryString.length; i++) {
                         bytes[i] = binaryString.charCodeAt(i);
                     }
-                    const decoded = new TextDecoder('utf-8').decode(bytes);
-                    document.getElementById('outputArea').value = decoded;
+                    outputArea.value = new TextDecoder('utf-8').decode(bytes);
                 } catch (e) {
                     throw new Error(errorString);
                 }
             }
         } else if (inputType === 'file') {
             // 处理文件输入
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            if (!file) return;
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) { errorMsg.textContent = ''; return; }
 
             if (operation === 'encode') {
                 // 编码文件
-                const base64DataUrl = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = error => reject(error);
-                    reader.readAsDataURL(file);
-                });
-                document.getElementById('outputArea').value = base64DataUrl;
+                outputArea.value = await readAsDataURL(file);
             }
         }
 
+        // 处理成功, 清除"正在处理..."提示
+        errorMsg.textContent = '';
     } catch (e) {
         console.error(e);
-        document.getElementById('outputArea').value = e.stack;
-        document.getElementById('errorMsg').innerHTML = `<a style="color:red">${errorTip}: ${e.message}</a>`;
+        outputArea.value = '';
+        // errorTip 在各语言中已自带冒号
+        errorMsg.innerHTML = `<a style="color:red">${errorTip} ${e.message}</a>`;
     }
 }
