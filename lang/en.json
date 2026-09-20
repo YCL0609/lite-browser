@@ -40,6 +40,7 @@
         "saveSetting": "Save",
         "refreshSetting": "Reload",
         "unsupprrtMIME": "Unsupported MIME image format!",
+        "fileError": "File read failed: ",
         "urlInvalid": "Search engine URL is invalid!",
         "app": {
             "title": "Main Application Settings",
@@ -194,7 +195,8 @@
                 "errorTitle": "File read error"
             },
             "add": {
-                "errorTitle": "File write error"
+                "errorTitle": "File write error",
+                "errorInfo": "Data directory is not writable, cannot write file"
             }
         },
         "insertjs": {

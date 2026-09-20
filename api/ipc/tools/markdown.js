@@ -1,5 +1,6 @@
 import { DataPath, getFile, getLocale } from '../../../core/index.js';
-import { isolateImage } from './common.js';
+import { isolateImage, parseJson } from './common.js';
+import { pathToFileURL } from 'node:url';
 import { ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -19,9 +20,8 @@ ipcMain.handle('tools-markdown-get', () => {
         const rawHtml = getFile(mdFiles, defaultMarkDown);
         // 还原图像url
         const content = rawHtml.replace(/\$([^$]+)\$/g, (_, filename) => {
-            const filePath = path.join(imgDir, filename);
-            const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
-            return fileUrl;
+            const filePath = path.join(imgDir, path.basename(filename));
+            return pathToFileURL(filePath).href;
         });
         return { status: true, message: content };
     } catch (err) {
@@ -37,7 +37,7 @@ ipcMain.handle('tools-markdown-set', (_, content) => {
 
     try {
         // 分离图像
-        imgIDsCache ??= JSON.parse(getFile(imgListFile, '[]'));
+        imgIDsCache ??= parseJson(getFile(imgListFile, '[]'), []);
         if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
         const resualt = isolateImage(content, imgDir, imgIDsCache);
         if (resualt.isUpdate) {

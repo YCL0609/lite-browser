@@ -1,7 +1,7 @@
 class NoteMessage {
     static #isinit = false;
 
-    static async #init() {
+    static #init() {
         if (this.#isinit) return;
         const css = ".LB-notes-container{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}.LB-note{min-width:200px;max-width:90vw;padding:8px 14px;border-radius:10px;box-shadow:0 2px 8px #00000033;color:#000;pointer-events:auto;cursor:pointer}.LB-info{background-color:#00ffffbb}.LB-error{background-color:#ff0000bb}.LB-success{background-color:#00ff00bb}.LB-warning{background-color:#ffff00bb}";
         const style = document.createElement('style');
@@ -58,7 +58,7 @@ class NoteMessage {
         if (!this.#isinit || !id) return;
         const messageDiv = document.getElementById(id);
         const container = document.querySelector('.LB-notes-container');
-        if (messageDiv) container.removeChild(messageDiv)
+        if (messageDiv && container) container.removeChild(messageDiv)
     }
 }
 

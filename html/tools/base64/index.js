@@ -93,6 +93,9 @@ async function processInput(operation) {
         console.error(e);
         outputArea.value = '';
         // errorTip 在各语言中已自带冒号
-        errorMsg.innerHTML = `<a style="color:red">${errorTip} ${e.message}</a>`;
+        const errEl = document.createElement('a');
+        errEl.style.color = 'red';
+        errEl.textContent = `${errorTip} ${e.message}`;
+        errorMsg.replaceChildren(errEl);
     }
 }

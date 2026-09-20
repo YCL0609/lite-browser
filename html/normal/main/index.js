@@ -44,7 +44,10 @@ function showBookmark(id, book) {
     cardDiv.id = 'bookmark-' + id
     const infoDiv = document.createElement('div');
     infoDiv.className = 'bookmark-info';
-    infoDiv.innerHTML = `<div class="bookmark-name">${book.name}</div>`;
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'bookmark-name';
+    nameDiv.textContent = book.name;
+    infoDiv.appendChild(nameDiv);
     infoDiv.style.cursor = 'pointer';
     infoDiv.addEventListener('click', () => litebrowser.newWindow(book.url));
     const actionDiv = document.createElement('div');
@@ -76,7 +79,7 @@ function showBookmark(id, book) {
         if (confirm(lang.bookmark.confirmDel.replace('$name$', book.name))) {
             delete bookmarks[id];
             document.getElementById('bookmark-' + id).remove();
-            litebrowser.setBookmark(bookmarks);
+            litebrowser.setBookmarks(bookmarks);
         }
     });
     actionDiv.appendChild(editBtn);

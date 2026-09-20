@@ -7,8 +7,8 @@ const configArg = process.argv.find(arg => arg.startsWith('--app-config='));
 let passedConfig = {};
 if (configArg) {
   try {
-    const jsonString = configArg.substring(configArg.indexOf('=') + 1);
-    passedConfig = JSON.parse(jsonString);
+    const parsed = JSON.parse(configArg.substring(configArg.indexOf('=') + 1));
+    if (parsed && typeof parsed === 'object') passedConfig = parsed;
   } catch (_) { }
 }
 const cfg = {
@@ -37,15 +37,15 @@ contextBridge.exposeInMainWorld('litebrowser', api);
 
 // 页面加载完成事件
 window.addEventListener('DOMContentLoaded', () => {
-  // 自动化 JS 注入
-  if (cfg.insertjs) ipcRenderer.send('insertjs-auto-js-insert');
+  // 自动化 JS 注入 (仅在顶层框架触发，避免 iframe 重复注入)
+  if (cfg.insertjs && window.top === window.self) ipcRenderer.send('insertjs-auto-js-insert');
 
   // 右键菜单事件
   if (cfg.contentMenu) {
     window.addEventListener('contextmenu', (e) => {
       if (!contextmenu) return;
       e.preventDefault();
-      ipcRenderer.send('menu-contextmenu', { x: e.clientX, y: e.clientY });
+      ipcRenderer.send('menu-contextmenu', e.clientX, e.clientY);
     });
   }
 });

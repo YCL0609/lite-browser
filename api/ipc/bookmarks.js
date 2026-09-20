@@ -48,6 +48,8 @@ ipcMain.on('bookmarks-set', (_, data) => {
     const filtered = jsonFilter(data);
     debugLog('info', 'Saving new bookmark list:')
     debugLog('table', filtered)
+    const dir = path.dirname(jsonPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(jsonPath, JSON.stringify(filtered), 'utf-8');
   } catch (err) {
     debugLog('error', 'Failed to set bookmark:', err.message);

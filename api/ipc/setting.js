@@ -1,4 +1,4 @@
-import { debugLog, getFile, getLocale, DataPath, defaultSetting, jsonCheck, openSettings } from '../../core/index.js';
+import { debugLog, getFile, getLocale, DataPath, defaultSetting, jsonCheck, openSettings, safeJoin } from '../../core/index.js';
 import { ipcMain, dialog } from 'electron';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
@@ -14,7 +14,7 @@ ipcMain.on('settings-open-windows', openSettings);
 
 // 获取配置
 ipcMain.handle('settings-get', () => {
-    if (!DataPath.access.RW) return defaultCfg;
+    if (!DataPath.access.RW) return defaultSetting;
     try {
         const dataRaw = JSON.parse(getFile(jsonPath, defaultFileStr));
         const data = jsonCheck(dataRaw, defaultSetting)
@@ -23,14 +23,31 @@ ipcMain.handle('settings-get', () => {
     } catch (err) {
         debugLog('error', 'Failed to get settings:', err.message);
         dialog.showErrorBox(lang.get, err.message);
+        return defaultSetting;
     }
 });
 
+// 解析背景图文件名
+function resolveBgFile(name) {
+    const file = safeJoin(DataPath.basic, String(name ?? '').trim());
+    if (!file) return null;
+    try {
+        return fs.statSync(file).isFile() ? file : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 // 获取背景图像URL
 ipcMain.handle('settings-get-img', (_, name) => {
-    if (!DataPath.access.R || name == '') return '';
+    if (!DataPath.access.R || typeof name !== 'string' || name.trim() == '') return '';
     try {
-        return pathToFileURL(path.resolve(DataPath.basic, name)).href.trim();
+        const file = resolveBgFile(name);
+        if (!file) {
+            debugLog('warn', 'Rejected background image name:', name);
+            return '';
+        }
+        return pathToFileURL(file).href.trim();
     } catch (err) {
         debugLog('error', 'Failed to convent background img to local URL:', err.message)
         dialog.showErrorBox(lang.getImg, err.message);
@@ -44,10 +61,21 @@ ipcMain.on('settings-set', (_, data) => {
     try {
         const json = jsonCheck(data, defaultSetting);
         fs.writeFileSync(jsonPath, JSON.stringify(json));
-        if (bgImgName !== '' && json.mainWin.background !== bgImgName) {
-            fs.unlinkSync(path.join(DataPath.basic, bgImgName));
-            bgImgName = json.mainWin.background;
+        // 清理被替换掉的旧背景图 
+        const newBg = String(json.mainWin.background ?? '').trim();
+        if (bgImgName !== '' && newBg !== bgImgName) {
+            const oldFile = resolveBgFile(bgImgName);
+            if (oldFile) {
+                try {
+                    fs.rmSync(oldFile, { force: true });
+                } catch (err) {
+                    debugLog('warn', 'Failed to remove old background image:', err.message);
+                }
+            } else {
+                debugLog('warn', 'Skip removing unsafe or missing background image:', bgImgName);
+            }
         }
+        bgImgName = newBg;
         debugLog('info', 'New app setting received:')
         debugLog('table', json.app);
         debugLog('info', 'New main windows setting received:')

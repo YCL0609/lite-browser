@@ -63,8 +63,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 绑定删除按钮事件
     document.getElementById('deleteBtn').addEventListener('click', async () => {
-        if (confirm(lang.confirmTip) && await litebrowser.getFile('history.txt')) {
-            document.getElementById('list').innerHTML = '';
+        if (!confirm(lang.confirmTip)) return;
+        const isok = await litebrowser.setFile('history.txt', '');
+        if (isok) {
+            document.getElementById('list').replaceChildren();
+        } else {
+            alert(langRaw.permission.write.tip);
         }
     });
 });

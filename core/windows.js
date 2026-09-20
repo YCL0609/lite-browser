@@ -17,7 +17,7 @@ function _getNomenuSession() {
  * @returns {void}
  */
 function openToolsWindow(name = '') {
-    if (name.trim() == '' || !settings.app.toolsBox) return;
+    if (name.trim() == '' || !settings.app.toolBox) return;
     debugLog('info', `Opening tools window: ${name}`);
     const newwin = new BrowserWindow({
         width: 1024,

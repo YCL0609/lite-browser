@@ -12,26 +12,65 @@ let autoJSCache = null;
 const langRaw = getLocale();
 const lang = langRaw.ipc.insertjs;
 
+// 脚本 ID 白名单校验
+const ID_REGEX = /^[A-Za-z0-9_-]{1,64}$/;
+
+// 读取脚本名映射
+function readNameJson() {
+    try {
+        const data = JSON.parse(getFile(jsonPath_name, defaultJson_name));
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+        return data;
+    } catch (err) {
+        debugLog('warn', 'Failed to parse JS name list, using empty list:', err.message);
+        return {};
+    }
+}
+
+// 读取自动注入配置并规范化结构
+function readAutoJson() {
+    let raw;
+    try {
+        raw = JSON.parse(getFile(jsonPath_auto, defaultJson_auto));
+    } catch (err) {
+        debugLog('warn', 'Failed to parse auto inject config, using default:', err.message);
+        raw = null;
+    }
+
+    // 格式化配置
+    const data = { hosts: [] };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return data;
+    const hosts = Array.isArray(raw.hosts) ? raw.hosts : [];
+    for (const host of hosts) {
+        if (typeof host !== 'string' || host === '') continue;
+        data.hosts.push(host);
+        const list = raw[host];
+        data[host] = Array.isArray(list)
+            ? list.filter((id) => typeof id === 'string' && ID_REGEX.test(id))
+            : [];
+    }
+    return data;
+}
+
 // 窗口注册
 ipcMain.on('insertjs-register-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed()) {
-        windowMap.set(win.id, win); // 保存窗口对象
-        win.once('closed', () => windowMap.delete(win.id)) // 窗口销毁时删除保存的对象
-    }
+    if (!win || win.isDestroyed()) return;
+    windowMap.set(win.id, win); // 保存窗口对象
+    win.once('closed', () => windowMap.delete(win.id)) // 窗口销毁时删除保存的对象
 });
 
 // 获取脚本列表
-ipcMain.handle('insertjs-get-jslist', async () => {
+ipcMain.handle('insertjs-get-jslist', () => {
     if (!DataPath.access.R) return { used: 0, error: lang.get.errorInfo, list: [] };
-    let json;
     const startat = performance.now();
+    let json;
     try {
-        const jsonData = JSON.parse(getFile(jsonPath_name, defaultJson_name));
+        const data = readNameJson();
         json = {
             used: performance.now() - startat,
             error: -1,
-            list: jsonData
+            list: data
         }
     } catch (err) {
         json = {
@@ -51,24 +90,27 @@ ipcMain.on('insertjs-add-js', async (event) => {
         if (!DataPath.access.W) throw new Error(lang.add.errorInfo);
         const win = BrowserWindow.fromWebContents(event.sender);
         // 打开文件选择对话框
-        const result = await dialog.showOpenDialog(win, {
+        const options = {
             title: lang.add.title,
             properties: ['openFile', 'multiSelections'],
             filters: [
                 { name: 'JavaScript', extensions: ['js'] },
                 { name: 'All Files', extensions: ['*'] }
             ]
-        });
+        };
+        const result = win
+            ? await dialog.showOpenDialog(win, options)
+            : await dialog.showOpenDialog(options);
         // 处理用户选择
-        if (result.canceled || result.filePaths.length === 0) {
-            return { success: false, message: lang.add.userCancel };
-        }
+        if (result.canceled || result.filePaths.length === 0) return;
+
+        const idJson = readNameJson();
         for (const sourcePath of result.filePaths) {
             const fileName = path.basename(sourcePath);
             const ext = path.extname(fileName);
             const name = path.basename(fileName, ext);
             const nameID = crypto.randomUUID();
-            const targetPath = path.join(DataPath.insertjs, nameID + '.js');
+            const targetPath = path.join(DataPath.insertjs, nameID + '.js') ;
             // 复制文件
             try {
                 await fs.promises.copyFile(sourcePath, targetPath);
@@ -78,16 +120,18 @@ ipcMain.on('insertjs-add-js', async (event) => {
                 return;
             }
             // 记录ID和名称对应关系
-            try {
-                const idJson = JSON.parse(getFile(jsonPath_name, defaultJson_name));
-                idJson[nameID] = name;
-                fs.writeFileSync(jsonPath_name, JSON.stringify(idJson, null, 2), 'utf-8');
-                win.reload();
-            } catch (err) {
-                debugLog('error', 'Record ID mapping error:', err.message);
-                dialog.showErrorBox(lang.add.IDError, err.message);
-            }
+            idJson[nameID] = name;
         }
+        try {
+            fs.writeFileSync(jsonPath_name, JSON.stringify(idJson, null, 2), 'utf-8');
+        } catch (err) {
+            debugLog('error', 'Record ID mapping error:', err.message);
+            dialog.showErrorBox(lang.add.IDError, err.message);
+            return;
+        }
+
+        // 刷新列表
+        if (win) win.reload();
     } catch (err) {
         debugLog('error', 'Add new entry error:', err.message);
         dialog.showErrorBox(lang.add.errorTitle, err.message);
@@ -98,9 +142,13 @@ ipcMain.on('insertjs-add-js', async (event) => {
 ipcMain.on('insertjs-rename-js', (_, jsID, newName) => {
     try {
         if (!DataPath.access.RW) throw new Error(lang.rename.errorInfo);
+        if (typeof jsID !== 'string' || !ID_REGEX.test(jsID)) throw new Error(lang.rename.errorInfo);
+        if (typeof newName !== 'string') throw new Error(lang.rename.errorInfo);
+        const name = newName.trim().slice(0, 200);
+        if (name === '') return;
         // 更新配置文件
-        const listJson = JSON.parse(getFile(jsonPath_name, defaultJson_name));
-        listJson[jsID] = newName;
+        const listJson = readNameJson();
+        listJson[jsID] = name;
         fs.writeFileSync(jsonPath_name, JSON.stringify(listJson, null, 2), 'utf-8');
     } catch (err) {
         debugLog('error', 'Rename entry error:', err.message);
@@ -109,13 +157,21 @@ ipcMain.on('insertjs-rename-js', (_, jsID, newName) => {
 })
 
 // 删除脚本
-ipcMain.on('insertjs-remove-js', (_, jsIDs) => {
+ipcMain.on('insertjs-remove-js', async (_, jsIDs) => {
+    if (!Array.isArray(jsIDs)) return;
+    const ids = jsIDs.filter((id) => typeof id === 'string' && ID_REGEX.test(id));
+    if (ids.length === 0) return;
+
     // 删除文件
     try {
         if (!DataPath.access.W) throw new Error(lang.remove.errorInfo)
-        jsIDs.forEach(async (id) => {
-            await fs.promises.unlink(path.join(DataPath.insertjs, id + '.js'))
-        })
+        for (const id of ids) {
+            try {
+                await fs.promises.unlink(path.join(DataPath.insertjs, id + '.js'));
+            } catch (err) {
+                if (err.code !== 'ENOENT') throw err;
+            }
+        }
     } catch (err) {
         debugLog('error', 'Failed to delete JS file:', err.message);
         dialog.showErrorBox(lang.remove.fileErrorTitle, err.message);
@@ -123,10 +179,9 @@ ipcMain.on('insertjs-remove-js', (_, jsIDs) => {
     }
     // 删除ID记录
     try {
-        const jsonPath = path.join(DataPath.insertjs, 'name.json');
-        const idJson = JSON.parse(getFile(jsonPath, defaultJson_name));
-        jsIDs.forEach(id => delete idJson[id]);
-        fs.writeFileSync(jsonPath, JSON.stringify(idJson, null, 2), 'utf-8');
+        const idJson = readNameJson();
+        for (const id of ids) delete idJson[id];
+        fs.writeFileSync(jsonPath_name, JSON.stringify(idJson, null, 2), 'utf-8');
     } catch (err) {
         debugLog('error', 'Error deleting mapping record:', err.message);
         dialog.showErrorBox(lang.remove.IDErrorTitle, err.message);
@@ -137,7 +192,7 @@ ipcMain.on('insertjs-remove-js', (_, jsIDs) => {
 ipcMain.on('insertjs-open-dir', async () => {
     try {
         await fs.promises.mkdir(DataPath.insertjs, { recursive: true });
-        shell.openPath(DataPath.insertjs);
+        await shell.openPath(DataPath.insertjs);
     } catch (err) {
         debugLog('warn', 'Can not open dir out side app:', DataPath.insertjs);
         dialog.showErrorBox(lang.opendir.errorTitle + DataPath.insertjs, err.message);
@@ -146,56 +201,69 @@ ipcMain.on('insertjs-open-dir', async () => {
 
 // 注入脚本
 ipcMain.on('insertjs-insert-js', (event, winid, jsIDs) => {
+    const childwin = BrowserWindow.fromWebContents(event.sender);
+    if (!childwin || childwin.isDestroyed()) return;
     try {
         if (!DataPath.access.R) throw new Error(lang.insert.errorInfo);
-        const mainWindow = BrowserWindow.fromId(winid);
-        jsIDs.forEach(id => {
-            const filepath = path.join(DataPath.insertjs, id + '.js');
-            const content = fs.readFileSync(filepath, 'utf-8');
+        if (!Array.isArray(jsIDs)) return;
+        const mainWindow = Number.isInteger(winid) ? BrowserWindow.fromId(winid) : null;
+        // 目标窗口已关闭时静默退出
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+        for (const id of jsIDs.filter((value) => typeof value === 'string' && ID_REGEX.test(value))) {
+            const content = fs.readFileSync(path.join(DataPath.insertjs, id + '.js'), 'utf-8');
             // 插入脚本
             mainWindow.webContents.executeJavaScript(content).catch(err => {
                 debugLog('error', 'Script execution failed:', err?.message || err);
             });
-        });
-        // 关闭子窗口
-        const childwin = BrowserWindow.fromWebContents(event.sender);
-        if (childwin && !childwin.isDestroyed()) childwin.close();
+        }
     } catch (err) {
         debugLog('error', 'Script injection error:', err.message);
         dialog.showErrorBox(lang.insert.errorTitle, err.message);
+    } finally {
+        // 关闭子窗口
+        if (childwin) childwin.close();
     }
 });
 
 // 获取当前网址的自动注入脚本列表
 ipcMain.handle('insertjs-get-auto-js', (_, winid) => {
     if (!DataPath.access.R) return { errID: -1, hosts: [] };
-    const win = BrowserWindow.fromId(winid);
-    const url = new URL(win.webContents.getURL());
-    if (url.host === '') return { errID: -1, hosts: [] };
-    const listJson = JSON.parse(getFile(jsonPath_auto, defaultJson_auto));
-    return { errID: 0, hosts: (listJson.hosts.includes(url.host)) ? listJson[url.host] : [] };
+    try {
+        const win = Number.isInteger(winid) ? BrowserWindow.fromId(winid) : null;
+        if (!win || win.isDestroyed()) return { errID: -1, hosts: [] };
+        const url = new URL(win.webContents.getURL());
+        if (url.host === '') return { errID: -1, hosts: [] };
+        const listJson = readAutoJson();
+        return { errID: 0, hosts: (listJson.hosts.includes(url.host)) ? listJson[url.host] : [] };
+    } catch (err) {
+        debugLog('warn', 'Failed to get auto inject list:', err.message);
+        return { errID: -1, hosts: [] };
+    }
 });
 
 // 更新当前网址的自动注入脚本列表
 ipcMain.on('insertjs-change-auto-js', (_, winid, jsIDs) => {
     try {
         if (!DataPath.access.RW) throw new Error(lang.changeAuto.errorInfo)
-        const win = BrowserWindow.fromId(winid);
+        if (!Array.isArray(jsIDs)) return;
+        const ids = jsIDs.filter((id) => typeof id === 'string' && ID_REGEX.test(id));
+        const win = Number.isInteger(winid) ? BrowserWindow.fromId(winid) : null;
+        if (!win || win.isDestroyed()) return;
         const url = new URL(win.webContents.getURL());
         if (url.host === '') return;
         // 更新配置文件
-        if (autoJSCache == null) autoJSCache = JSON.parse(getFile(jsonPath_auto, defaultJson_auto));
+        if (autoJSCache == null) autoJSCache = readAutoJson();
         if (autoJSCache.hosts.includes(url.host)) {
-            if (jsIDs.length === 0) {
+            if (ids.length === 0) {
                 delete autoJSCache[url.host];
                 autoJSCache.hosts.splice(autoJSCache.hosts.indexOf(url.host), 1);
             } else {
-                autoJSCache[url.host] = jsIDs;
+                autoJSCache[url.host] = ids;
             }
         } else {
-            if (jsIDs.length !== 0) {
+            if (ids.length !== 0) {
                 autoJSCache.hosts.push(url.host);
-                autoJSCache[url.host] = jsIDs;
+                autoJSCache[url.host] = ids;
             }
         }
         fs.writeFileSync(jsonPath_auto, JSON.stringify(autoJSCache, null, 2), 'utf-8');
@@ -208,31 +276,30 @@ ipcMain.on('insertjs-change-auto-js', (_, winid, jsIDs) => {
 // 自动注入脚本
 ipcMain.on('insertjs-auto-js-insert', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return;
     try {
         if (!DataPath.access.R) throw new Error(lang.autoInsert.errorInfo);
         // 获取窗口网址
         const urlStr = win.webContents.getURL();
+        if (urlStr === '') return;
         const urlObj = new URL(urlStr);
         // 获取host对应的脚本列表
-        const host = (urlObj.host === '') ? -1 : urlObj.host;
-        if (host === -1) return;
-        autoJSCache ??= JSON.parse(getFile(jsonPath_auto, defaultJson_auto));
+        const host = urlObj.host;
+        if (host === '') return;
+        autoJSCache ??= readAutoJson();
         let changed = false;
         // 检查文件是否存在，不存在则移除
         if (autoJSCache.hosts.includes(host)) {
             const jsList = autoJSCache[host];
             for (let i = jsList.length - 1; i >= 0; i--) {
-                const jsid = jsList[i];
-                const filepath = path.join(DataPath.insertjs, jsid + '.js');
-                if (!fs.existsSync(filepath)) {
+                if (!fs.existsSync(path.join(DataPath.insertjs, jsList[i] + '.js'))) {
                     jsList.splice(i, 1);
                     changed = true;
                 }
             }
             // 插入剩余存在的脚本
             for (const jsid of jsList) {
-                const filepath = path.join(DataPath.insertjs, jsid + '.js');
-                const content = fs.readFileSync(filepath, 'utf-8');
+                const content = fs.readFileSync(path.join(DataPath.insertjs, jsid + '.js'), 'utf-8');
                 win.webContents.executeJavaScript(content).catch(err => {
                     debugLog('error', 'Auto script execution failed:', err?.message || err);
                 }); // 插入脚本

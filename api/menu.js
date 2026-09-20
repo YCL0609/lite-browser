@@ -6,7 +6,7 @@ const lang = getLocale();
 const settings = getSettings();
 
 // 工具菜单
-const toolsMenu = settings.app.toolsBox ? {
+const toolsMenu = settings.app.toolBox ? {
   label: lang.menu.tools.index,
   submenu: toolList.map((id, index) => ({
     label: lang.tools.name[index],
@@ -37,7 +37,7 @@ const controlMenu_Page = [
   {
     label: ctrlText.back, accelerator: 'Alt+Left',
     click: () => {
-      const win = BrowserWindow.getFocusedWindow()?.webContents.navigationHistory;
+      const win = BrowserWindow.getFocusedWindow()?.webContents?.navigationHistory;
       if (win && win.canGoBack()) win.goBack();
     }
   },
@@ -46,7 +46,7 @@ const controlMenu_Page = [
   {
     label: ctrlText.forward, accelerator: 'Alt+Right',
     click: () => {
-      const win = BrowserWindow.getFocusedWindow()?.webContents.navigationHistory;
+      const win = BrowserWindow.getFocusedWindow()?.webContents?.navigationHistory;
       if (win && win.canGoForward()) win.goForward();
     }
   }

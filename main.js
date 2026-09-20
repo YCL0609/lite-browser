@@ -1,14 +1,10 @@
 import { cmdLineHandle, debugLog, getSettings, AppPath, DataPath, IconPath } from './core/index.js';
-import { app, session, BrowserWindow, Menu, dialog, clipboard } from 'electron';
-import { pathToFileURL } from 'node:url';
+import { app, session, BrowserWindow, Menu, dialog } from 'electron';
 import { TopMenu } from './api/menu.js';
 import path from "node:path";
-const gotTheLock = app.requestSingleInstanceLock();
+import fs from "node:fs";
 const settings = getSettings();
 let mainWin = null;
-
-// 关闭第二实例
-if (!gotTheLock) process.exit(0);
 
 // 设置数据路径
 if (DataPath.basic === '') {
@@ -16,7 +12,12 @@ if (DataPath.basic === '') {
   dialog.showErrorBox('Fatal Error: Data directory initialization failed', 'Failed to initialize the default data directory. The program tried to fall back to initialize the temporary directory but still failed. The program will exit.');
   process.exit(1);
 }
+try { fs.mkdirSync(DataPath.userData, { recursive: true }); } catch (_) { }
 app.setPath('userData', DataPath.userData);
+
+// 获取全局锁
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) process.exit(0);
 
 // GPU加速禁用配置处理
 if (!settings?.app.useGPU) {
@@ -33,7 +34,7 @@ if (!settings?.app.useGPU) {
   app.commandLine.appendSwitch('disable-gpu-sandbox');
 
   // 强制Chromium使用纯软件方案进行必要渲染
-  app.commandLine.appendSwitch('use-gl', 'swiftshader'); 
+  app.commandLine.appendSwitch('use-gl', 'swiftshader');
 }
 
 // 日志输出
@@ -47,7 +48,7 @@ debugLog('table', settings?.app)
 
 // 主窗口实例
 function createMainWindow() {
-  const bgURL = pathToFileURL(String(settings?.mainWin.background))?.href?.trim() ?? '';
+  const cfgTxt = JSON.stringify(settings);
   mainWin = new BrowserWindow({
     width: 1024,
     height: 600,
@@ -63,9 +64,8 @@ function createMainWindow() {
       session: session.fromPartition('persist:main'),
       preload: path.join(AppPath, 'api', 'preload', 'main.js'),
       additionalArguments: [
-        '--app-config=' + btoa(JSON.stringify(settings)),
-        '--dir-access=' + ((DataPath.access.R ? 1 : 0) | (DataPath.access.W ? 2 : 0)),
-        '--background=' + btoa(bgURL)
+        '--app-config=' + Buffer.from(String(cfgTxt), 'utf-8').toString('base64'),
+        '--dir-access=' + ((DataPath.access.R ? 1 : 0) | (DataPath.access.W ? 2 : 0))
       ],
     }
   });
@@ -81,7 +81,7 @@ app.whenReady().then(() => {
     dialog.showMessageBox({
       type: 'warning',
       title: 'Not use normal data path',
-      message: 'Unable to use the scmdpecified data path. Using temporary directory instead.\n\nTemporary data path: ' + DataPath.basic,
+      message: 'Unable to use the specified data path. Using temporary directory instead.\n\nTemporary data path: ' + DataPath.basic,
       buttons: ['OK'],
     });
   }

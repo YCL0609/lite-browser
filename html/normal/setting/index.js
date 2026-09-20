@@ -2,6 +2,7 @@ let currentSettings = {};
 let bgFileName = null;
 let bgBase64 = null;
 let lang = null
+let langRoot = null
 const imageMIME = { // 支持的图片MIME类型
     'image/gif': 'gif',
     'image/png': 'png',
@@ -40,6 +41,7 @@ async function init() {
     // 语言切换
     const langRaw = await litebrowser.getLang();
     lang = langRaw.settingsChange;
+    langRoot = langRaw;
     if (langRaw.Info.lang != "zh") {
         document.title = lang.title;
         document.querySelectorAll('[data-langId]').forEach(e => {
@@ -118,10 +120,15 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     // URL合规性校验
     const isUrl = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(data.mainWin.searchUrl);
     const haveS = data.mainWin.searchUrl.includes('%s');
-    if (!isUrl || !haveS) alert(lang.urlInvalid);
+    if (!isUrl || !haveS) return alert(lang.urlInvalid);
+
 
     // 保存
-    if (bgBase64 && bgFileName) litebrowser.setFile(bgFileName, bgBase64);
+    if (bgBase64 && bgFileName) {
+        const isok = await litebrowser.setFile(bgFileName, bgBase64);
+        if (!isok) return alert(langRoot?.permission?.write?.tip);
+
+    }
     litebrowser.setSettings(data);
 });
 

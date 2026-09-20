@@ -1,5 +1,6 @@
 import { DataPath, debugLog, getFile, getLocale } from '../../../core/index.js';
-import { isolateImage } from './common.js';
+import { isolateImage, parseJson } from './common.js';
+import { pathToFileURL } from 'node:url';
 import { ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -22,9 +23,8 @@ ipcMain.handle('tools-notepad-get', (_, id) => {
         // 还原图像url
         const imgDir = path.join(DataPath.tools, 'notepad', id.toString());
         const content = rawHtml.replace(/\$([^$]+)\$/g, (_, filename) => {
-            const filePath = path.join(imgDir, filename);
-            const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
-            return fileUrl;
+            const filePath = path.join(imgDir, path.basename(filename));
+            return pathToFileURL(filePath).href;
         });
 
         return { status: true, message: content };
@@ -48,7 +48,7 @@ ipcMain.handle('tools-notepad-set', (_, content, id) => {
         // 分离图像
         const imgDir = path.join(DataPath.tools, 'notepad', id.toString());
         if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
-        imgIDsCache ??= JSON.parse(getFile(imgListFile, '{}'));
+        imgIDsCache ??= parseJson(getFile(imgListFile, '{}'), {});
         imgIDsCache[id] ??= [];
         const resualt = isolateImage(content, imgDir, imgIDsCache[id]);
         if (resualt.isUpdate) {
@@ -74,7 +74,7 @@ ipcMain.handle('tools-notepad-del', (_, id) => {
         // 删除图片文件夹和id记录
         const imgDir = path.join(DataPath.tools, 'notepad', id.toString());
         if (fs.existsSync(imgDir)) fs.rmSync(imgDir, { force: true, recursive: true });
-        imgIDsCache ??= JSON.parse(getFile(imgListFile, '{}'));
+        imgIDsCache ??= parseJson(getFile(imgListFile, '{}'), {});
         if (imgIDsCache[id]) delete imgIDsCache[id];
         fs.writeFileSync(imgListFile, JSON.stringify(imgIDsCache), 'utf-8');
         // 删除笔记

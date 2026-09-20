@@ -3,10 +3,11 @@ const { ipcRenderer, contextBridge } = require('electron');
 // 目录权限参数获取
 const access = { R: false, W: false }
 try {
-    const accessArg = process.argv.find(arg => arg.startsWith('--dir-access='));
-    const dirAccess = parseInt(accessArg.split('=')[1]) ?? 0;
-    access.R = (dirAccess >> 0) & 1
-    access.W = (dirAccess >> 1) & 1
+    const prefix = '--dir-access=';
+    const accessArg = process.argv.find(arg => arg.startsWith(prefix));
+    const dirAccess = Number.parseInt(accessArg ? accessArg.slice(prefix.length) : '0', 10) || 0;
+    access.R = (dirAccess & 1) === 1
+    access.W = (dirAccess & 2) === 2
 } catch (err) {
     alert('Preload script error: Unable to parse command line arguments!')
     console.error('Preload script error:', err.stack)

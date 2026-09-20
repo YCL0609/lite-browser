@@ -60,8 +60,12 @@ document.getElementById('rename').addEventListener('click', () => {
 document.getElementById('rename-apply').addEventListener('click', () => {
     const newName = document.getElementById('rename-input').value.trim();
     if (newName == "") return;
+    const row = document.getElementById(renamedID);
+    if (!row) return;
     litebrowser.renameJS(renamedID, newName);
-    document.getElementById(renamedID).innerHTML = `<b>${newName}</b>`;
+    const bold = document.createElement('b');
+    bold.textContent = newName;
+    row.replaceChildren(bold);
     document.querySelectorAll('.jsrow').forEach(e => e.classList.remove('selected'));
     overlay.style.display = "none";
     renamedID = null;
@@ -109,7 +113,9 @@ document.getElementById('auto').addEventListener('click', async () => {
     const autoList = await litebrowser.getAutoJS(litebrowser.parentID);
     if (autoList.errID === -1) return;
     autoList.hosts.forEach(id => {
-        document.getElementById(id).classList.add('selected');
+        const row = document.getElementById(id);
+        if (!row) return;
+        row.classList.add('selected');
         selstedJsId.add(id);
     });
 });
@@ -140,7 +146,10 @@ async function GetList() {
     document.getElementById('used').innerText = Math.round(list.used * 100) / 100 + 'ms';
     // 处理错误
     if (list.error !== -1) {
-        listdiv.innerHTML = '<a style="display:block;text-align:center;color:red">' + list.error + '</a>';
+        const errEl = document.createElement('a');
+        errEl.style.cssText = 'display:block;text-align:center;color:red';
+        errEl.textContent = String(list.error);
+        listdiv.replaceChildren(errEl);
         return;
     }
     // 处理无列表

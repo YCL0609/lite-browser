@@ -28,7 +28,7 @@ const message = {
     p.id = id;
     a.id = id + '-content';
     p.innerText = message[id].info;
-    a.innerHTML = isEmpty ? message[id].default : info[id];
+    a.textContent = isEmpty ? message[id].default : info[id];
 
     p.appendChild(a);
     infoDiv.appendChild(p);

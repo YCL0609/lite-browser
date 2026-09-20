@@ -49,7 +49,7 @@ function showBookmark(id, book) {
                 .replace('$name$', book.name)
         )) return;
         delete bookmarks[id];
-        litebrowser.setBookmark(bookmarks);
+        litebrowser.setBookmarks(bookmarks);
         item.remove();
     };
     actions.appendChild(editBtn);

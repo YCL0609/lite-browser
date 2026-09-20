@@ -111,7 +111,7 @@ const _dirPath = (() => {
     return dir
 })();
 
-// 数据目录读权限检测
+// 数据目录写权限检测
 const _dirCanWrite = (() => {
     try {
         fs.accessSync(_dirPath, fs.constants.W_OK | fs.constants.X_OK);
@@ -119,7 +119,7 @@ const _dirCanWrite = (() => {
     } catch (_) { return false }
 })();
 
-// 数据目录写权限检测
+// 数据目录读权限检测
 const _dirCanRead = (() => {
     try {
         fs.accessSync(_dirPath, fs.constants.R_OK | fs.constants.X_OK);

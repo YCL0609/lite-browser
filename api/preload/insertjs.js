@@ -1,13 +1,17 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 let parentID = null;
-const arg = process.argv.find(arg => arg.startsWith('--parent-window-id='));
-if (arg) parentID = parseInt(arg.split('=')[1], 10)
+const prefix = '--parent-window-id=';
+const arg = process.argv.find(item => item.startsWith(prefix));
+if (arg) {
+    const id = Number.parseInt(arg.slice(prefix.length), 10);
+    if (Number.isInteger(id)) parentID = id;
+}
 
 contextBridge.exposeInMainWorld('litebrowser', {
     parentID: parentID,
     getList: () => {
-        if (parentID === null || typeof parentID !== 'number') return Promise.resolve({ time: { start: Date.now(), used: 0 }, error: "The parameter '--parent-window-id' is invalid!", list: [] });
+        if (!Number.isInteger(parentID)) return Promise.resolve({ time: { start: Date.now(), used: 0 }, error: "The parameter '--parent-window-id' is invalid!", list: [] });
         return ipcRenderer.invoke('insertjs-get-jslist');
     },
     addJS: () => ipcRenderer.send('insertjs-add-js'),

@@ -5,6 +5,28 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 /**
+ * 在新窗口中打开一个 URL
+ * @param {string} url - 要打开的地址
+ * @returns {void}
+ */
+function openUrlWindow(url) {
+  const win = new BrowserWindow({
+    width: 800, height: 600, icon: IconPath,
+    webPreferences: {
+      sandbox: true,
+      spellcheck: false,
+      webSecurity: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      session: session.defaultSession
+    }
+  });
+  win.loadURL(url).catch(err => {
+    debugLog('warn', 'Failed to load URL from command line:', url, err?.message || err);
+  });
+}
+
+/**
  * 处理命令行参数，支持直接打开 URL 和打开内置小工具
  * - 识别以 http(s):// 开头的 URL 并在新窗口中打开
  * - 识别以 `--<toolID>` 形式的小工具 id 并打开对应工具窗口
@@ -19,11 +41,13 @@ function cmdLineHandle(params = [], callback) {
   const tools = [];
   debugLog('info', 'Command Line Parameters:', ...params);
 
-  for (const arg of params) {
+  const argList = Array.isArray(params) ? params : [];
+  for (const arg of argList) {
+    if (typeof arg !== 'string') continue;
     // 提取URL
     if (urlRegex.test(arg)) Urls.push(arg);
     // 小工具参数
-    if (settings?.app.toolsBox) {
+    if (settings?.app.toolBox && arg.startsWith('--')) {
       const cmd = arg.slice(2); // 去前缀
       if (toolList.includes(cmd) && !tools.includes(cmd)) {
         tools.push(cmd);
@@ -34,29 +58,38 @@ function cmdLineHandle(params = [], callback) {
   if (Urls.length === 0 && tools.length === 0) {
     // 无特殊参数时正常启动
     if (typeof callback === 'function') callback();
-  } else {
-    // 打开对应页面
-    Promise.all([
-      Urls.forEach(url => new BrowserWindow({
-        width: 800, height: 600, icon: IconPath,
-        webPreferences: {
-          sandbox: true,
-          spellcheck: false,
-          webSecurity: true,
-          nodeIntegration: false,
-          contextIsolation: true,
-          session: session.defaultSession
-        }
-      }).loadURL(url)),
-      tools.forEach(tool => openToolsWindow(tool))
-    ])
+    return;
   }
+
+  // 打开对应页面
+  Urls.forEach(openUrlWindow);
+  if (tools.length > 0) {
+    // 动态导入以避免与 windows.js 形成循环依赖
+    import('./windows.js')
+      .then(mod => tools.forEach(tool => mod.openToolsWindow(tool)))
+      .catch(err => debugLog('error', 'Failed to open tools window:', err?.message || err));
+  }
+}
+
+/**
+ * 在 `baseDir` 内安全地拼接 `name`
+ * @param {string} baseDir - 基准目录
+ * @param {string} name - 相对文件名 (不含路径分隔符)
+ * @returns {string|null} 安全路径；当 `name` 非法或逃逸出基准目录时返回 `null`
+ */
+function safeJoin(baseDir, name) {
+  if (typeof baseDir !== 'string' || typeof name !== 'string') return null;
+  if (name.trim() === '' || name.includes('\0')) return null;
+  const base = path.resolve(baseDir);
+  const target = path.resolve(base, name);
+  const rel = path.relative(base, target);
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  return target;
 }
 
 let _localejson = null;
 /**
  * 加载并返回本地化语言 JSON 对象 (缓存后复用)
- * - 优先使用系统首选语言或环境变量 `LITE_BROWSER_LANG` 指定的语言，失败时回退到英文
  * @returns {Object} 本地化字符串映射对象
  */
 function getLocale() {
@@ -116,7 +149,7 @@ function getFile(filePath = null, defaultData = '', type = 'utf-8') {
     return fs.readFileSync(filePath, type);
   } else {
     if (DataPath.access.W) {
-      debugLog('info', 'File not exit, trying to created width default content - File:', filePath);
+      debugLog('info', 'File not exist, creating with default content - File:', filePath);
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       if (defaultData !== null) fs.writeFileSync(filePath, defaultData);
@@ -190,18 +223,18 @@ function getSettings() {
   // 命令行参数处理
   const hwLimitMode = app.commandLine.hasSwitch('app-hw-limit-mode');
   const noGPUMode = hwLimitMode || app.commandLine.hasSwitch('app-disable-gpu');
-  const toolsBox = app.commandLine.hasSwitch('app-disable-toolbox');
-  const history = app.commandLine.hasSwitch('app-disable-history-file');
-  const insertjs = app.commandLine.hasSwitch('app-disable-insert-js');
+  const noToolBox = app.commandLine.hasSwitch('app-disable-toolbox');
+  const noHistory = app.commandLine.hasSwitch('app-disable-history-file');
+  const noInsertjs = app.commandLine.hasSwitch('app-disable-insert-js');
   const menuAll = app.commandLine.hasSwitch('app-disable-menu-all');
   const menuTop = menuAll || app.commandLine.hasSwitch('app-disable-menu-top');
   const menuContent = menuAll || app.commandLine.hasSwitch('app-disable-menu-content');
   const cmdAppcfg = {
     useGPU: noGPUMode ? false : _settings.app.useGPU,
-    toolsBox: toolsBox ? false : _settings.app.toolBox,
-    history: history ? false : _settings.app.history,
+    toolBox: noToolBox ? false : _settings.app.toolBox,
+    history: noHistory ? false : _settings.app.history,
     topMenu: menuTop ? false : _settings.app.topMenu,
-    insertjs: insertjs ? false : _settings.app.insertjs,
+    insertjs: noInsertjs ? false : _settings.app.insertjs,
     normalMode: hwLimitMode ? false : _settings.app.normalMode,
     contentMenu: menuContent ? false : _settings.app.contentMenu,
   }
@@ -218,6 +251,7 @@ function getSettings() {
 export {
   getFile,
   getLocale,
+  safeJoin,
   jsonCheck,
   getSettings,
   cmdLineHandle,

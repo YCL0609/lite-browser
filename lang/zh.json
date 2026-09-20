@@ -195,7 +195,8 @@
                 "errorTitle": "文件读取错误"
             },
             "add": {
-                "errorTitle": "文件写入错误"
+                "errorTitle": "文件写入错误",
+                "errorInfo": "数据目录不可写，无法写入文件"
             }
         },
         "insertjs": {

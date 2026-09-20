@@ -1,5 +1,6 @@
 import { debugLog, getFile, getLocale, DataPath } from '../../../core/index.js';
-import { isolateImage } from './common.js';
+import { isolateImage, parseJson } from './common.js';
+import { pathToFileURL } from 'node:url';
 import { ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -25,9 +26,8 @@ ipcMain.handle('tools-code-get', async () => {
         ]);
         // 还原图像url
         const html = rawHtml.replace(/\$([^$]+)\$/g, (_, filename) => {
-            const filePath = path.join(imgDir, filename);
-            const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
-            return fileUrl;
+            const filePath = path.join(imgDir, path.basename(filename));
+            return pathToFileURL(filePath).href;
         });
         return { status: true, message: { html: html, css: css, js: js } };
     } catch (err) {
@@ -44,18 +44,19 @@ ipcMain.handle('tools-code-set', (_, content, type) => {
     if (!DataPath.access.W) return { status: false, message: langRaw.permission.write.info };
 
     try {
+        let output = content;
         if (type == 'html') {
             // 分离图像
-            imgIDsCache ??= JSON.parse(getFile(imgListFile, '[]'));
+            imgIDsCache ??= parseJson(getFile(imgListFile, '[]'), []);
             if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
             const resualt = isolateImage(content, imgDir, imgIDsCache);
             if (resualt.isUpdate) {
                 imgIDsCache = resualt.IDCache;
                 fs.writeFileSync(imgListFile, JSON.stringify(imgIDsCache));
-                content = resualt.html;
             }
+            output = resualt.html;
         }
-        fs.writeFileSync(codeFiles[type], content, 'utf-8');
+        fs.writeFileSync(codeFiles[type], output, 'utf-8');
         return { status: true, message: 'OK' };
     } catch (err) {
         debugLog('error', `Code tool content '${type}' update failed:`, err.message);
