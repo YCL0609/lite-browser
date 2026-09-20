@@ -1,7 +1,12 @@
-name: Multi-Arch Build
+name: Build and Release
 
 on:
   workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -12,7 +17,7 @@ jobs:
           - os: windows-latest
             arch: x64
           - os: windows-latest
-            arch: ia32 
+            arch: arm64
 
           - os: ubuntu-latest
             arch: x64
@@ -23,7 +28,6 @@ jobs:
             arch: x64
           - os: macos-latest
             arch: arm64
-
 
     runs-on: ${{ matrix.os }}
 
@@ -47,4 +51,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lite-browser-${{ matrix.os }}-${{ matrix.arch }}
-          path: out/make/**
+          path: out/make/**/*.zip
+
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: out/make/**/*.zip
