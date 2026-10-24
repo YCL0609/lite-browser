@@ -7,7 +7,7 @@ import fs from 'node:fs';
 /**
  * 在新窗口中打开一个 URL
  * @param {string} url - 要打开的地址
- * @returns {void}
+ * @returns {Electron.BrowserWindow} 新建的窗口
  */
 function openUrlWindow(url) {
   const win = new BrowserWindow({
@@ -24,6 +24,7 @@ function openUrlWindow(url) {
   win.loadURL(url).catch(err => {
     debugLog('warn', 'Failed to load URL from command line:', url, err?.message || err);
   });
+  return win;
 }
 
 /**
@@ -255,4 +256,5 @@ export {
   jsonCheck,
   getSettings,
   cmdLineHandle,
+  openUrlWindow,
 };

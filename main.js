@@ -1,4 +1,5 @@
 import { cmdLineHandle, debugLog, getSettings, AppPath, DataPath, IconPath } from './core/index.js';
+import { startDshBridge } from './api/dsh-bridge.js';
 import { app, session, BrowserWindow, Menu, dialog } from 'electron';
 import { TopMenu } from './api/menu.js';
 import path from "node:path";
@@ -95,6 +96,11 @@ app.whenReady().then(() => {
   session.defaultSession.registerPreloadScript({
     type: 'frame',
     filePath: path.join(AppPath, 'api', 'preload', 'normal.js')
+  });
+
+  // 本机 DSH 浏览器桥接（仅 127.0.0.1 + 随机令牌）
+  void startDshBridge().catch(err => {
+    debugLog('error', 'Failed to start the DSH bridge:', err?.message || err);
   });
 
   // 引入所有 ipc 事件
